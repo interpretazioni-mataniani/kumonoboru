@@ -1,0 +1,8 @@
+[Unit]
+Description=Kumonoboru - Cloud Backup Utility
+
+[Service]
+ExecStart=/bin/bash /home/shmick/Scripts/Kumonoboru --clean
+
+[Install]
+WantedBy=multi-user.target
