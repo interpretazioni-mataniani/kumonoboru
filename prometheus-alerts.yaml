@@ -1,0 +1,86 @@
+  - name: Backups
+    rules:
+    - alert: KumonoboruFailure
+      expr: |
+        up{job="systemd", unit="Kumonoboru", state="failed"} == 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Service failure detected in {{ $labels.instance }}"
+        description: "The service '{{ $labels.instance }}' has a failed status"
+        source: 'https://monitor.your-domain.com'
+
+    - alert: KumonoboruTimerFailure
+      expr: |
+        up{job="systemd", unit="Kumonoboru", state="failed"} == 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Timer failure detected in {{ $labels.instance }}"
+        description: "The timer '{{ $labels.instance }}' has a failed status"
+        source: 'https://monitor.your-domain.com'
+
+    - alert: SystemBackupFailed
+      expr: |
+        system_backup == 1
+      labels:
+        severity: critical
+      annotations:
+        summary: "System Backup has failed"
+        description: "The repository {{ $labels.instance }} has failed the backup process"
+
+    - alert: SystemBackupUnlockFailed
+      expr: |
+        system_backup == -1
+      labels:
+        severity: critical
+      annotations:
+        summary: "System Backup cannot proceed"
+        description: "The repository {{ $labels.instance }} has failed to unlock. Backup cannot be performed"
+
+    - alert: SystemBackupIntegrityFailed
+      expr: |
+        system_backup == -2
+      labels:
+        severity: critical
+      annotations:
+        summary: "System Backup containes error"
+        description: "The repository {{ $labels.instance }} has failed an integrity check. Backup data may be corrupted"
+
+    - alert: SystemBackupCleaningFailed
+      expr: |
+        system_backup == -3
+      labels:
+        severity: critical
+      annotations:
+        summary: "System Backup cannot be cleaned"
+        description: "The repository {{ $labels.instance }} has failed the cleanup process. Backup may contain excess data"
+
+    - alert: SystemBackupSucceeded
+      expr: |
+        system_backup == 0
+      labels:
+        severity: info
+      annotations:
+        summary: "System Backup has succeeded"
+        description: "The repository {{ $labels.instance }} has succesfully completed the backup process"
+
+    - alert: SystemBackupIntegritySucceeded
+      expr: |
+        system_backup == 2
+      labels:
+        severity: info 
+      annotations:
+        summary: "System Backup has no errors"
+        description: "The repository {{ $labels.instance }} passed the integrity check"
+
+    - alert: SystemBackupCleaningSucceeded
+      expr: |
+        system_backup == 3
+      labels:
+        severity: info
+      annotations:
+        summary: "System Backup has been cleaned"
+        description: "The repository {{ $labels.instance }} has completed the cleanup process"
