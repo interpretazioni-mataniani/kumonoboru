@@ -1,7 +1,6 @@
 # Kumonoboru 
 Kumonoboru (雲上る - 'to rise up in the clouds' in Japanese) is a cloud backup script based on [Restic](https://github.com/restic/restic), imported from my home system.
-It is scheduled and configured via an Ansible, and launched via Gitea CI.
-
+It is scheduled and configured via an Ansible, and launched via Gitea CI.  Atarashi writes the output to a Prometheus file (`kumonoboru`.prom), which can then be picked up by a Prometheus instance to notify when containers are updated\fail to update. Some example alerts (`prometheus-alerts.yaml`) are included.
 **This is a sanitized, non-functional template** you can modify and use as you see fit.
 
 The script is currently configured to use B2 as a backend, and read the repository configuration (B2 repository name and the local filesystem path it backs up) from a file,
