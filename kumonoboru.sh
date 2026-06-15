@@ -4,6 +4,7 @@
 #+ Kumonoboru logs to a .prom file, which can subsequently be picked up by a Prometheus file handler,
 #+ thus generating alerts.
 
+source /usr/share/okoru/okoru.sh
 
 show_help()
 {
@@ -59,14 +60,14 @@ PROM_FILE="${PROM_FILE:-/var/lib/node_exporter/textfile_collector/kumonoboru.pro
 if [[ -z $BWLIMIT ]]; then
 	export BWLIMIT="0"
 else
-    echo -e "Bandwidth will be limited to" "$BWLIMIT Kbps" 
+	info "Bandwidth will be limited to" "$BWLIMIT Kbps"
 fi
 if [[ -n $CLEAN ]]; then
-    echo -e "Cleaning will take place per request."
+	info "Cleaning will take place per request."
 fi
 if [[ -n $REPOSITORY ]]; then
-	    echo -e "Will only process repository" "$1"
-fi	    
+	info "Will only process repository" "$REPOSITORY"
+fi
 
 ## Restic B2 credentials and repository password.
 ## When installed as a package, these are set via EnvironmentFile=/etc/kumonoboru/env
@@ -79,17 +80,14 @@ fi
 ## Safety function; accepts repository to check
 safety(){
 	REPOSITORY="$1"
-	echo -e "Checking if repository $REPOSITORY is in use "
-	#Check no other Restic process is using this repository; Free unnecessary locks, if present
+	info "Checking if repository $REPOSITORY is in use"
 	if [[ -n $(ps aux | grep restic | grep "$REPOSITORY") ]]; then
-		echo -e "Repository is in use - ignoring"
+		warn "Repository $REPOSITORY is in use - ignoring"
 		echo "system_backup{name=\"$REPOSITORY\"} -1" >> $PROM_FILE
-		return 1	#					code for   ^ failed to unlock
-#		       ^ If there's a restic process holding the repository, leave it alone.
+		return 1
 	else
-		echo -e "Repository is not in use - unlocking"
+		info "Repository $REPOSITORY is not in use - unlocking"
 		restic -q -r b2:$REPOSITORY unlock
-#		silence ^		    ^ If a lock exists but no process, the repository is safe and should be unlocked.
 	fi
 }
 
@@ -98,13 +96,12 @@ backup(){
 	REPOSITORY="$1"
 	REPOSITORY_PATH="$2"
 	if safety "$REPOSITORY"; then
-		echo -e "Backing up repository" "$REPOSITORY"
+		info "Backing up repository" "$REPOSITORY"
 		if restic --cache-dir="$RESTIC_CACHE_DIR" -r b2:"$REPOSITORY" backup "$REPOSITORY_PATH" --limit-upload="$BWLIMIT" --limit-download="$BWLIMIT"; then
-			echo -e "$REPOSITORY_PATH" "completed upload to $REPOSITORY."
-			## Report result to Prometheus
+			ok "$REPOSITORY_PATH completed upload to $REPOSITORY."
 			echo "system_backup{name=\"$REPOSITORY\"} 0" >> $PROM_FILE
 		else
-			echo -e "$REPOSITORY failed to upload path" "$REPOSITORY_PATH"
+			error "$REPOSITORY failed to upload path $REPOSITORY_PATH"
 			echo "system_backup{name=\"$REPOSITORY\"} 1" >> $PROM_FILE
 		fi
 	fi
@@ -114,23 +111,19 @@ backup(){
 check(){
 	REPOSITORY="$1"
 	PRUNE="$2"
-##	^ This variable will have value if repo is already clean, indicating
-#+	This is a post backup check.
-	echo -e "Checking integrity (prune: $PRUNE) of repository $REPOSITORY"
+	info "Checking integrity of repository $REPOSITORY"
 	if [[ -n $PRUNE ]]; then
-		echo -e "This repository has been cleaned already; will not clean again."
+		info "Repository already cleaned this run - skipping second prune."
 	fi
 	if safety "$REPOSITORY"; then
-		echo -e "Checking health of repository $REPOSITORY" 
 		if restic -r b2:"$REPOSITORY" check --limit-upload="$BWLIMIT" --limit-download="$BWLIMIT"; then
-			echo -e "Repository $REPOSITORY passed integrity check"
+			ok "Repository $REPOSITORY passed integrity check"
 			echo "system_backup{name=\"$REPOSITORY\"} 2" >> $PROM_FILE
-			echo -e "Current snapshots:"
+			info "Current snapshots:"
 			restic -r b2:"$REPOSITORY" snapshots
 		else
-			echo -e "Repository $REPOSITORY failed integrity check"
+			error "Repository $REPOSITORY failed integrity check"
 			echo "system_backup{name=\"$REPOSITORY\"} -2" >> $PROM_FILE
-
 		fi
 	fi
 }
@@ -139,17 +132,15 @@ check(){
 clean(){
 	REPOSITORY="$1"
 	if safety "$REPOSITORY"; then
-		echo -e "Cleaning repository" "$REPOSITORY"
+		info "Cleaning repository" "$REPOSITORY"
 		if restic -r b2:$REPOSITORY forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune --limit-upload="$BWLIMIT" --limit-download="$BWLIMIT"; then
-			echo -e "Repository $REPOSITORY is clean"
+			ok "Repository $REPOSITORY is clean"
 			echo "system_backup{name=\"$REPOSITORY\"} 3" >> $PROM_FILE
-			echo -e "Running post clean check..."
+			info "Running post-clean integrity check..."
 			check "$REPOSITORY" "1"
-#	 Marks repository as cleaned already ^ so it won't passed to this function again.
 		else
-				echo -e "Failed to clean repository $REPOSITORY"
-				echo "system_backup{name=\"$REPOSITORY\"} -3" >> $PROM_FILE
-
+			error "Failed to clean repository $REPOSITORY"
+			echo "system_backup{name=\"$REPOSITORY\"} -3" >> $PROM_FILE
 		fi
 	fi
 }
@@ -161,11 +152,8 @@ clean(){
 
 REPO_FILE="${REPO_FILE:-/etc/kumonoboru/repositories}"
 if [[ ! -f $REPO_FILE ]]; then
-	echo "Repository file $REPO_FILE is undefined. Please define $REPO_FILE."
-	echo "Format:"
-	echo "[B2-REPOSITORY] [LOCAL_PATH]"
-	echo "Example:"
-	echo "potato_tmp	/tmp/potato"
+	error "Repository file $REPO_FILE not found."
+	info "Format: [B2-REPOSITORY] [LOCAL_PATH]  (e.g. my-bucket /opt/ebtb)"
 	exit 1
 fi
 
@@ -175,7 +163,7 @@ if [[ -n $REPOSITORY ]]; then
 	repo_path=$(grep "$REPOSITORY" "$REPO_FILE" | awk '{print $2}')
 
 	if [[ -z $repo_name ]] || [[ -z $repo_path ]]; then
-		echo "Could not find repository $REPOSITORY"
+		error "Could not find repository $REPOSITORY in $REPO_FILE"
 	else
 		REPOS["$repo_name"]=$repo_path
 	fi
@@ -183,6 +171,7 @@ if [[ -n $REPOSITORY ]]; then
 else
 	declare -A REPOS
 	while read -r repo_entry; do
+		[[ -z "$repo_entry" || "$repo_entry" == \#* ]] && continue
 		repo_name=$(echo "$repo_entry" | awk '{print $1}')
 		repo_path=$(echo "$repo_entry" | awk '{print $2}')
 		REPOS["$repo_name"]=$repo_path
@@ -202,7 +191,7 @@ for repo in "${!REPOS[@]}"; do
 	fi
 done
 
-echo "All done; have a nice day!"
+ok "All done; have a nice day!"
 
 ## Once the script finishes, the .prom file will live on for 2 minutes before being deleted.
 #+ This allows Prometheus to pick up the alert, send out a notification, and move on with its life.

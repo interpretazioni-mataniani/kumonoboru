@@ -1,11 +1,12 @@
 Name:           kumonoboru
-Version:        1.0.1
+Version:        1.0.4
 Release:        1%{?dist}
 Summary:        Restic backup wrapper with Prometheus textfile reporting
 License:        MIT
 BuildArch:      noarch
 Requires:       bash
 Requires:       restic
+Requires:       okoru
 
 Source0:        kumonoboru.sh
 Source1:        kumonoboru.service
@@ -53,6 +54,16 @@ systemctl daemon-reload 2>/dev/null || :
 %dir %attr(750, root, root) %{_sysconfdir}/kumonoboru
 
 %changelog
+* Mon Jun 15 2026 Matan Horovitz - 1.0.4-1
+- Skip comment and blank lines when parsing repositories file
+
+* Mon Jun 15 2026 Matan Horovitz - 1.0.3-1
+- Source okoru for structured logging; suppress colors when not running interactively
+- Add Requires: okoru
+
+* Mon Jun 15 2026 Matan Horovitz - 1.0.2-1
+- Change service type to simple
+
 * Mon Jun 15 2026 Matan Horovitz - 1.0.1-1
 - Fix repository file path: use $REPO_FILE consistently instead of hardcoded .kumonoboru
 - Replace %systemd_* macros with plain systemctl calls for portability
