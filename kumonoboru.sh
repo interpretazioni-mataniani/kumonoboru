@@ -41,9 +41,9 @@ flags()
 }
 flags "$@"
 
-## File to write results to; picked up by Prometheus and yells about changes.
-## It is deleted 5 minutes after the script exits.
-PROM_FILE="/your/prometheus/container/directory/data/kumonoboru.prom"
+## File to write results to; picked up by node_exporter textfile collector.
+## Override via environment variable if needed.
+PROM_FILE="${PROM_FILE:-/var/lib/node_exporter/textfile_collector/kumonoboru.prom}"
 
 
 ## Monitoring codes:
@@ -68,10 +68,12 @@ if [[ -n $REPOSITORY ]]; then
 	    echo -e "Will only process repository" "$1"
 fi	    
 
-## Restic, when using a B2 backend, relies on these environment variables. Either set them here, in some other file, or in your system's environment to proceed - nothing works otherwise.
-B2_ACCOUNT_ID=your-B2-account-ID
-B2_ACCOUNT_KEY=your-B2-account-key
-RESTIC_PASSWORD=your-restic-password
+## Restic B2 credentials and repository password.
+## When installed as a package, these are set via EnvironmentFile=/etc/kumonoboru/env
+## and do not need to be defined here.
+: "${B2_ACCOUNT_ID:?B2_ACCOUNT_ID not set — define it in /etc/kumonoboru/env}"
+: "${B2_ACCOUNT_KEY:?B2_ACCOUNT_KEY not set — define it in /etc/kumonoboru/env}"
+: "${RESTIC_PASSWORD:?RESTIC_PASSWORD not set — define it in /etc/kumonoboru/env}"
 
 
 ## Safety function; accepts repository to check
@@ -157,7 +159,7 @@ clean(){
 #+ [repo-name] [path-on-local-filesystem]
 #+ Kumonoboru will iterate over each entry
 
-REPO_FILE=".kumonoboru"
+REPO_FILE="${REPO_FILE:-/etc/kumonoboru/repositories}"
 if [[ ! -f $REPO_FILE ]]; then
 	echo "Repository file $REPO_FILE is undefined. Please define $REPO_FILE."
 	echo "Format:"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Kumonoboru - Restic backup with Prometheus reporting
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/kumonoboru/env
+ExecStart=/usr/bin/kumonoboru
+
+[Install]
+WantedBy=multi-user.target

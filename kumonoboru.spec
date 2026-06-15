@@ -1,0 +1,51 @@
+Name:           kumonoboru
+Version:        1.0.0
+Release:        1%{?dist}
+Summary:        Restic backup wrapper with Prometheus textfile reporting
+License:        MIT
+BuildArch:      noarch
+Requires:       bash
+Requires:       restic
+
+Source0:        kumonoboru.sh
+Source1:        kumonoboru.service
+Source2:        kumonoboru.timer
+Source3:        kumonoboru-prune.service
+Source4:        kumonoboru-prune.timer
+
+%description
+Kumonoboru wraps Restic for B2 cloud backups. It checks repository locks,
+backs up configured paths, verifies integrity, and prunes old snapshots.
+Backup status is written to a Prometheus textfile collector metric
+(system_backup) for alerting.
+
+Credentials and repository list are configured via /etc/kumonoboru/.
+
+%install
+install -Dm755 %{SOURCE0} %{buildroot}%{_bindir}/kumonoboru
+install -Dm644 %{SOURCE1} %{buildroot}%{_unitdir}/kumonoboru.service
+install -Dm644 %{SOURCE2} %{buildroot}%{_unitdir}/kumonoboru.timer
+install -Dm644 %{SOURCE3} %{buildroot}%{_unitdir}/kumonoboru-prune.service
+install -Dm644 %{SOURCE4} %{buildroot}%{_unitdir}/kumonoboru-prune.timer
+install -dm750 %{buildroot}%{_sysconfdir}/kumonoboru
+
+%post
+%systemd_post kumonoboru.timer kumonoboru-prune.timer
+
+%preun
+%systemd_preun kumonoboru.timer kumonoboru-prune.timer
+
+%postun
+%systemd_postun_with_restart kumonoboru.timer kumonoboru-prune.timer
+
+%files
+%{_bindir}/kumonoboru
+%{_unitdir}/kumonoboru.service
+%{_unitdir}/kumonoboru.timer
+%{_unitdir}/kumonoboru-prune.service
+%{_unitdir}/kumonoboru-prune.timer
+%dir %attr(750, root, root) %{_sysconfdir}/kumonoboru
+
+%changelog
+* Sun Jun 15 2026 Matan Horovitz - 1.0.0-1
+- Initial package
