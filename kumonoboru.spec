@@ -1,5 +1,5 @@
 Name:           kumonoboru
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        Restic backup wrapper with Prometheus textfile reporting
 License:        MIT
@@ -30,13 +30,19 @@ install -Dm644 %{SOURCE4} %{buildroot}/usr/lib/systemd/system/kumonoboru-prune.t
 install -dm750 %{buildroot}%{_sysconfdir}/kumonoboru
 
 %post
-%systemd_post kumonoboru.timer kumonoboru-prune.timer
+if [ $1 -eq 1 ]; then
+    systemctl daemon-reload 2>/dev/null || :
+    systemctl enable kumonoboru.timer kumonoboru-prune.timer 2>/dev/null || :
+fi
 
 %preun
-%systemd_preun kumonoboru.timer kumonoboru-prune.timer
+if [ $1 -eq 0 ]; then
+    systemctl stop kumonoboru.timer kumonoboru-prune.timer 2>/dev/null || :
+    systemctl disable kumonoboru.timer kumonoboru-prune.timer 2>/dev/null || :
+fi
 
 %postun
-%systemd_postun_with_restart kumonoboru.timer kumonoboru-prune.timer
+systemctl daemon-reload 2>/dev/null || :
 
 %files
 %{_bindir}/kumonoboru
@@ -47,5 +53,9 @@ install -dm750 %{buildroot}%{_sysconfdir}/kumonoboru
 %dir %attr(750, root, root) %{_sysconfdir}/kumonoboru
 
 %changelog
+* Mon Jun 15 2026 Matan Horovitz - 1.0.1-1
+- Fix repository file path: use $REPO_FILE consistently instead of hardcoded .kumonoboru
+- Replace %systemd_* macros with plain systemctl calls for portability
+
 * Mon Jun 15 2026 Matan Horovitz - 1.0.0-1
 - Initial package

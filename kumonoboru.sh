@@ -171,8 +171,8 @@ fi
 
 ## If a specific repository was requested, look for it in the file and register its' path
 if [[ -n $REPOSITORY ]]; then
-	repo_name=$(cat .kumonoboru | grep $REPOSITORY | awk '{print $1}')
-	repo_path=$(cat .kumonoboru | grep $REPOSITORY | awk '{print $2}')
+	repo_name=$(grep "$REPOSITORY" "$REPO_FILE" | awk '{print $1}')
+	repo_path=$(grep "$REPOSITORY" "$REPO_FILE" | awk '{print $2}')
 
 	if [[ -z $repo_name ]] || [[ -z $repo_path ]]; then
 		echo "Could not find repository $REPOSITORY"
@@ -186,7 +186,7 @@ else
 		repo_name=$(echo "$repo_entry" | awk '{print $1}')
 		repo_path=$(echo "$repo_entry" | awk '{print $2}')
 		REPOS["$repo_name"]=$repo_path
-	done < .kumonoboru
+	done < "$REPO_FILE"
 fi
 
 for repo in "${!REPOS[@]}"; do
