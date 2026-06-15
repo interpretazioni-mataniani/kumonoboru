@@ -23,10 +23,10 @@ Credentials and repository list are configured via /etc/kumonoboru/.
 
 %install
 install -Dm755 %{SOURCE0} %{buildroot}%{_bindir}/kumonoboru
-install -Dm644 %{SOURCE1} %{buildroot}%{_unitdir}/kumonoboru.service
-install -Dm644 %{SOURCE2} %{buildroot}%{_unitdir}/kumonoboru.timer
-install -Dm644 %{SOURCE3} %{buildroot}%{_unitdir}/kumonoboru-prune.service
-install -Dm644 %{SOURCE4} %{buildroot}%{_unitdir}/kumonoboru-prune.timer
+install -Dm644 %{SOURCE1} %{buildroot}/usr/lib/systemd/system/kumonoboru.service
+install -Dm644 %{SOURCE2} %{buildroot}/usr/lib/systemd/system/kumonoboru.timer
+install -Dm644 %{SOURCE3} %{buildroot}/usr/lib/systemd/system/kumonoboru-prune.service
+install -Dm644 %{SOURCE4} %{buildroot}/usr/lib/systemd/system/kumonoboru-prune.timer
 install -dm750 %{buildroot}%{_sysconfdir}/kumonoboru
 
 %post
@@ -40,12 +40,12 @@ install -dm750 %{buildroot}%{_sysconfdir}/kumonoboru
 
 %files
 %{_bindir}/kumonoboru
-%{_unitdir}/kumonoboru.service
-%{_unitdir}/kumonoboru.timer
-%{_unitdir}/kumonoboru-prune.service
-%{_unitdir}/kumonoboru-prune.timer
+/usr/lib/systemd/system/kumonoboru.service
+/usr/lib/systemd/system/kumonoboru.timer
+/usr/lib/systemd/system/kumonoboru-prune.service
+/usr/lib/systemd/system/kumonoboru-prune.timer
 %dir %attr(750, root, root) %{_sysconfdir}/kumonoboru
 
 %changelog
-* Sun Jun 15 2026 Matan Horovitz - 1.0.0-1
+* Mon Jun 15 2026 Matan Horovitz - 1.0.0-1
 - Initial package
