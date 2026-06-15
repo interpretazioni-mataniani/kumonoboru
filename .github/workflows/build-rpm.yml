@@ -8,29 +8,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: fedora:latest
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build tools
-        run: dnf install -y rpm-build rpmdevtools
+        run: sudo apt-get install -y rpm
 
       - name: Set up rpmbuild tree
-        run: rpmdev-setuptree
+        run: mkdir -p $HOME/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
       - name: Build kumonoboru RPM
         run: |
-          cp kumonoboru.sh        $HOME/rpmbuild/SOURCES/
-          cp kumonoboru.service   $HOME/rpmbuild/SOURCES/
-          cp kumonoboru.timer     $HOME/rpmbuild/SOURCES/
+          cp kumonoboru.sh            $HOME/rpmbuild/SOURCES/
+          cp kumonoboru.service       $HOME/rpmbuild/SOURCES/
+          cp kumonoboru.timer         $HOME/rpmbuild/SOURCES/
           cp kumonoboru-prune.service $HOME/rpmbuild/SOURCES/
           cp kumonoboru-prune.timer   $HOME/rpmbuild/SOURCES/
-          cp kumonoboru.spec      $HOME/rpmbuild/SPECS/
+          cp kumonoboru.spec          $HOME/rpmbuild/SPECS/
           rpmbuild -bb $HOME/rpmbuild/SPECS/kumonoboru.spec
 
       - name: Upload RPM to release
         uses: softprops/action-gh-release@v2
         with:
-          files: /root/rpmbuild/RPMS/noarch/*.rpm
+          files: ~/rpmbuild/RPMS/noarch/*.rpm
