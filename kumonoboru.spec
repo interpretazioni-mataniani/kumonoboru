@@ -1,5 +1,5 @@
 Name:           kumonoboru
-Version:        1.0.4
+Version:        1.0.5
 Release:        1%{?dist}
 Summary:        Restic backup wrapper with Prometheus textfile reporting
 License:        MIT
@@ -54,6 +54,9 @@ systemctl daemon-reload 2>/dev/null || :
 %dir %attr(750, root, root) %{_sysconfdir}/kumonoboru
 
 %changelog
+* Wed Jun 18 2026 Matan Horovitz - 1.0.5-1
+- Write system_backup_last_snapshot metric on successful backup
+
 * Mon Jun 15 2026 Matan Horovitz - 1.0.4-1
 - Skip comment and blank lines when parsing repositories file
 
