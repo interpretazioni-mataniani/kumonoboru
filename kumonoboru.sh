@@ -47,14 +47,14 @@ flags "$@"
 PROM_FILE="${PROM_FILE:-/var/lib/node_exporter/textfile_collector/kumonoboru.prom}"
 
 
-## Monitoring codes:
-#+ -3 - failed cleaning
-#+ -2 - failed integrity check
-#+ -1 - failed to unlock
-#+  0 - succesfully backed up
-#+  1 - failed backup
-#+  2 - passed integrity check
-#+  3-  succesfully cleaned
+## system_backup metric values written to $PROM_FILE:
+#+ -3 - prune failed
+#+ -2 - integrity check failed
+#+ -1 - repository in use (restic already running); backup skipped
+#+  0 - backup succeeded
+#+  1 - backup failed
+#+  2 - integrity check passed
+#+  3 - prune succeeded
 
 #Defaults
 if [[ -z $BWLIMIT ]]; then
@@ -100,6 +100,7 @@ backup(){
 		if restic --cache-dir="$RESTIC_CACHE_DIR" -r b2:"$REPOSITORY" backup "$REPOSITORY_PATH" --limit-upload="$BWLIMIT" --limit-download="$BWLIMIT"; then
 			ok "$REPOSITORY_PATH completed upload to $REPOSITORY."
 			echo "system_backup{name=\"$REPOSITORY\"} 0" >> $PROM_FILE
+			echo "system_backup_last_snapshot{name=\"$REPOSITORY\"} $(date +%s)" >> $PROM_FILE
 		else
 			error "$REPOSITORY failed to upload path $REPOSITORY_PATH"
 			echo "system_backup{name=\"$REPOSITORY\"} 1" >> $PROM_FILE
@@ -198,4 +199,4 @@ ok "All done; have a nice day!"
 (
 	sleep 120
  	rm $PROM_FILE
-) 2>1 >/dev/null &
+) >/dev/null 2>&1 &

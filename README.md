@@ -1,36 +1,91 @@
-# Kumonoboru 
-Kumonoboru (雲上る - 'to rise up in the clouds' in Japanese) is a cloud backup script based on [Restic](https://github.com/restic/restic), imported from my home system.
-It is scheduled and configured via an Ansible, and launched via Gitea CI.  Atarashi writes the output to a Prometheus file (`kumonoboru`.prom), which can then be picked up by a Prometheus instance to notify when containers are updated\fail to update. Some example alerts (`prometheus-alerts.yaml`) are included.
-**This is a sanitized, non-functional template** you can modify and use as you see fit.
+# Kumonoboru
+雲上る — "to rise up in the clouds"
 
-The script is currently configured to use B2 as a backend, and read the repository configuration (B2 repository name and the local filesystem path it backs up) from a file,
-But can be easily modified to use different backends/configuration methods.
+Restic backup wrapper for Backblaze B2. Checks repository locks, runs backups, verifies integrity, and prunes old snapshots on a schedule. Writes results to a Prometheus textfile metric (`system_backup`) so node_exporter can expose them for alerting.
 
-This repository consists of:
-- `kumonoboru.sh` - the backup script itself
-- `kumonoboru.service.j2` - systemd service template, configured via Ansible
-- `kumonoboru.timer.j2` - systemd timer template, configured via Ansible
-- `./gitea/workflows/kumonoboru.yaml` - Gitea Actions CI workflow which installs Ansible, and runs the `kumonoboru.yaml` playbook to configure Kumonoboru.
+## Deployment
 
-# Usage
-Kumonoboru relies on three environment variables:
-- `B2_ACCOUNT_ID` - your BackBlaze B2 Account ID
-- `B2_ACCOUNT_KEY` - a valid BackBlaze B2 access key to your repository
-- `RESTIC_PASSWORD` - the password to access your Restic repository
+In the `everything-but-the-bagle` project, kumonoboru is deployed as an RPM via the `mkdocs` Ansible role (`tasks/backup.yml`). Credentials are provisioned from Ansible vault to `/etc/kumonoboru/env`. The systemd timers are enabled automatically by the RPM `%post` scriptlet.
 
-It also requires specifying your repositories in a file (`.kumonoboru` by default), followed by their path, such as:
+For standalone deployment (outside ebtb), see `kumonoboru.yaml`.
+
+## Configuration
+
+Both files live under `/etc/kumonoboru/` (directory created with mode 0750 by the RPM).
+
+**`/etc/kumonoboru/env`** — credentials (mode 0600):
 ```
-# B2 Repo Name    Path
-My-Repo           /home/me/my-repo
+B2_ACCOUNT_ID=...
+B2_ACCOUNT_KEY=...
+RESTIC_PASSWORD=...
 ```
 
-## As standalone script
-Once previous requirements are met, Kumonoboru can run as-is, given that `restic` is installed.
+**`/etc/kumonoboru/repositories`** — one repo per line (mode 0640):
+```
+# B2-bucket-name    local path to back up
+my-bucket           /opt/ebtb
+```
+Blank lines and `#` comments are skipped.
 
-## As Ansible pipeline
-To deploy Kumonoboru over multiple systems, you'll need to provide several secrets:
-1. A valid SSH key for Ansible to use to connect to target systems (`{{ SSH_PRIVATE_KEY }}`)
-2. A sudo password for elevated privledges, if needed. If not - you'll need to set `become` to `no` in `kumonoboru.yaml`
-3. An Ansible inventory file. I'm cloning it from another repository via an access token - you can do the same or simply provide it.
+## Systemd units
 
+| Unit | Schedule | What it does |
+|------|----------|--------------|
+| `kumonoboru.timer` | daily | Back up all configured repositories |
+| `kumonoboru-prune.timer` | monthly | Prune snapshots (keep 7d / 4w / 12m) and run integrity check |
 
+## Operations
+
+**Check timer status:**
+```bash
+systemctl status kumonoboru.timer kumonoboru-prune.timer
+systemctl list-timers kumonoboru*
+```
+
+**Run a backup manually:**
+```bash
+systemctl start kumonoboru.service
+# or with a specific repository:
+/usr/bin/kumonoboru --repository my-bucket
+```
+
+**View logs:**
+```bash
+journalctl -u kumonoboru.service -n 50
+journalctl -u kumonoboru-prune.service -n 50
+```
+
+**Check last backup result via Prometheus:**
+```promql
+system_backup{name="my-bucket"}
+```
+
+## Monitoring
+
+Kumonoboru writes to `/var/lib/node_exporter/textfile_collector/kumonoboru.prom`, which node_exporter picks up via its textfile collector. The metric `system_backup{name="<repo>"}` carries the following status codes:
+
+| Value | Meaning |
+|-------|---------|
+| 0 | Backup succeeded |
+| 1 | Backup failed |
+| 2 | Integrity check passed |
+| 3 | Prune succeeded |
+| -1 | Repository already in use — backup skipped |
+| -2 | Integrity check failed (data may be corrupted) |
+| -3 | Prune failed |
+
+The `.prom` file is removed 2 minutes after the script exits, giving Prometheus time to scrape it. Example alert rules are in `prometheus-alerts.yaml`.
+
+## CLI flags
+
+```
+-r / --repository <name>   Only process the named repository
+-l / --limit <Kbps>        Cap upload and download bandwidth
+-c / --clean               Force a prune run instead of a backup
+-v / --verbose             Enable debug output
+-h / --help                Print usage
+```
+
+## Dependencies
+- `restic` — backup engine
+- `okoru` — logging library (RPM dependency, installed automatically)
